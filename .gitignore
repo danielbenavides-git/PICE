@@ -5,3 +5,4 @@
 
 # Optionally ignore Jupyter autosave checkpoints
 .ipynb_checkpoints/
+__pycache__/
