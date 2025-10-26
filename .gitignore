@@ -1,0 +1,7 @@
+# Ignore all Excel and CSV files
+*.csv
+*.xlsx
+*.xls
+
+# Optionally ignore Jupyter autosave checkpoints
+.ipynb_checkpoints/
