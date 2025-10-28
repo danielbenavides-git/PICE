@@ -118,7 +118,7 @@ def test_mcar_using_ttest(df, var_with_missing, numeric_vars):
             print(f"    Mean when {var_with_missing} present: {diff['mean_present']:.2f}")
         return "MAR or MNAR"
     else:
-        print(f"\n No significant differences found (consistent with MCAR)")
+        print(f"\n✓ No significant differences found (consistent with MCAR)")
         return "MCAR"
 
 # ============================================
@@ -169,7 +169,7 @@ def test_mar_vs_mnar_categorical(df, var_with_missing, categorical_vars):
             print(f"    Chi-square: {assoc['chi2']:.2f}")
         return "MAR"
     else:
-        print(f"\n✓ No significant associations found")
+        print(f"\n No significant associations found")
         return "Inconclusive"
 
 # ============================================
