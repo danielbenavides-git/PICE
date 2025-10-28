@@ -7,6 +7,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 from scipy.stats import chi2_contingency
+import warnings
+
+# Suppress precision loss warnings
+warnings.filterwarnings('ignore', category=RuntimeWarning, 
+                       message='.*Precision loss occurred in moment calculation.*')
 
 # Variables to analyze for missingness
 variables_to_impute = [
@@ -29,15 +34,7 @@ def analyze_missingness_patterns(df, variables):
     
     # Create missingness indicator matrix
     missing_matrix = df[variables].isnull().astype(int)
-    
-    # Count unique missingness patterns
-    pattern_counts = missing_matrix.value_counts()
-    
-    print(f"\nNumber of unique missingness patterns: {len(pattern_counts)}")
-    print(f"\nTop 10 most common patterns (1 = missing, 0 = present):")
-    print("-" * 70)
-    print(pattern_counts.head(10))
-    
+
     # Correlation between missingness indicators
     print("\n\nCorrelation between missingness indicators:")
     print("-" * 70)
@@ -118,7 +115,7 @@ def test_mcar_using_ttest(df, var_with_missing, numeric_vars):
             print(f"    Mean when {var_with_missing} present: {diff['mean_present']:.2f}")
         return "MAR or MNAR"
     else:
-        print(f"\n✓ No significant differences found (consistent with MCAR)")
+        print(f"\n No significant differences found (consistent with MCAR)")
         return "MCAR"
 
 # ============================================
@@ -165,8 +162,8 @@ def test_mar_vs_mnar_categorical(df, var_with_missing, categorical_vars):
         for assoc in sorted(significant_assoc, key=lambda x: x['p_value']):
             print(f"\n  Variable: {assoc['variable']}")
             print(f"    p-value: {assoc['p_value']:.6f}")
-            print(f"    Cramér's V: {assoc['cramers_v']:.3f}")
-            print(f"    Chi-square: {assoc['chi2']:.2f}")
+            print(f"    Cramers V: {assoc['cramers_v']:.3f}")
+            print(f"    Chi-Square: {assoc['chi2']:.2f}")
         return "MAR"
     else:
         print(f"\n No significant associations found")
@@ -182,22 +179,12 @@ def visualize_missingness(df, variables):
     """
     missing_matrix = df[variables].isnull().astype(int)
     
-    # 1. Missingness heatmap
-    fig, axes = plt.subplots(2, 1, figsize=(14, 10))
-    
-    # Heatmap of missingness
-    sns.heatmap(missing_matrix.T, cmap='RdYlGn_r', cbar_kws={'label': 'Missing'}, 
-                ax=axes[0], yticklabels=True)
-    axes[0].set_title('Missingness Pattern Across Observations (Sample)', fontsize=14, weight='bold')
-    axes[0].set_xlabel('Observation Index')
-    axes[0].set_ylabel('Variables')
+    plt.figure(figsize=(8,6))
     
     # Correlation heatmap of missingness
     missing_corr = missing_matrix.corr()
-    sns.heatmap(missing_corr, annot=True, fmt='.2f', cmap='coolwarm', center=0,
-                ax=axes[1], square=True, linewidths=0.5)
-    axes[1].set_title('Correlation Between Missingness Indicators', fontsize=14, weight='bold')
-    
+    sns.heatmap(missing_corr, annot=True, cmap='coolwarm', center=0)
+    plt.title("Correlation of Missingness Indicators")
     plt.tight_layout()
     plt.show()
 
@@ -233,9 +220,6 @@ def comprehensive_missingness_analysis(df, variables_to_impute):
             results[var] = {'MCAR_test': mcar_result, 'MAR_test': mar_result}
     
     # 3. Visualizations
-    print("\n" + "=" * 70)
-    print("GENERATING VISUALIZATIONS...")
-    print("=" * 70)
     visualize_missingness(df, variables_present)
     
     # 4. Summary and recommendations
@@ -247,7 +231,7 @@ def comprehensive_missingness_analysis(df, variables_to_impute):
         print(f"\n{var}:")
         print(f"  Missingness type: {result['MCAR_test']} / {result['MAR_test']}")
         
-        # Recommend imputation method
+        # Recommend imputation method on Pretty Table
         if result['MCAR_test'] == 'MCAR':
             print(f"   Recommendation: Simple imputation (mean/median/mode) or deletion acceptable")
         elif result['MAR_test'] == 'MAR':
