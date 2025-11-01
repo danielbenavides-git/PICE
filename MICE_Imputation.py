@@ -90,8 +90,8 @@ def mice_imputation(db, variables_to_impute):
 
     # Data types summary
     print("\nDATA TYPES:")
-    print(f"  Numeric variables: {len(numeric_vars)}")
-    print(f"  Categorical variables: {len(categorical_vars)}")
+    print(f"Numeric variables: {len(numeric_vars)}")
+    print(f"Categorical variables: {len(categorical_vars)}")
 
     # Create comparison table
 

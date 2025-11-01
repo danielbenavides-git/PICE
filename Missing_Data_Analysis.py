@@ -125,7 +125,7 @@ def visualize_missingness(df, variables):
     """
     missing_matrix = df[variables].isnull().astype(int)
     
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(8, 6))
     
     # Correlation heatmap of missingness
     missing_corr = missing_matrix.corr()
@@ -143,8 +143,7 @@ def comprehensive_missingness_analysis(df, variables_to_impute):
     """
     Run complete missingness analysis and provide recommendations
     """
-    print("\nRunning missingness analysis...\n")
-    
+
     # Identify numeric and categorical variables
     numeric_vars = df.select_dtypes(include=[np.number]).columns.tolist()
     categorical_vars = [col for col in df.columns if col not in numeric_vars]
@@ -168,17 +167,7 @@ def comprehensive_missingness_analysis(df, variables_to_impute):
     print("CORRELATION BETWEEN MISSINGNESS INDICATORS")
     print("=" * 80)
     
-    if high_corr_pairs:
-        print("\nVariables with correlated missingness (|r| > 0.3):")
-        for var1, var2, corr in sorted(high_corr_pairs, key=lambda x: abs(x[2]), reverse=True):
-            print(f"  {var1} <-> {var2}: {corr:.3f}")
-    else:
-        print("\nNo strong correlations found between missingness patterns")
-    
     # 4. Visualizations
-    print("\n" + "=" * 80)
-    print("GENERATING CORRELATION HEATMAP...")
-    print("=" * 80 + "\n")
     visualize_missingness(df, variables_present)
     
     # 5. Summary and recommendations
