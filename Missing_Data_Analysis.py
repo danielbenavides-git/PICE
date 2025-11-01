@@ -1,5 +1,6 @@
+# =============================================
 # Missing Data Analysis for Imputation Strategy
-# ============================================
+# =============================================
 
 import numpy as np
 import pandas as pd
@@ -7,18 +8,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 from scipy.stats import chi2_contingency
+from prettytable import PrettyTable
 import warnings
 
 # Suppress precision loss warnings
 warnings.filterwarnings('ignore', category=RuntimeWarning, 
                        message='.*Precision loss occurred in moment calculation.*')
-
-# Variables to analyze for missingness
-variables_to_impute = [
-    "Sector", "Clase de Factura", "Clase de Movimiento V", 
-    "Centro de Coste", "Fecha Valor", "Ledger", "Cantidad", 
-    "Centro", "Hora", "Clase", "División"
-]
 
 # ============================================
 # 1. MISSINGNESS PATTERN ANALYSIS
@@ -28,16 +23,10 @@ def analyze_missingness_patterns(df, variables):
     """
     Analyze patterns of missingness across variables
     """
-    print("=" * 70)
-    print("MISSINGNESS PATTERN ANALYSIS")
-    print("=" * 70)
-    
     # Create missingness indicator matrix
     missing_matrix = df[variables].isnull().astype(int)
-
+    
     # Correlation between missingness indicators
-    print("\n\nCorrelation between missingness indicators:")
-    print("-" * 70)
     missing_corr = missing_matrix.corr()
     
     # Find high correlations (excluding diagonal)
@@ -52,14 +41,7 @@ def analyze_missingness_patterns(df, variables):
                     corr_value
                 ))
     
-    if high_corr_pairs:
-        print("\nVariables with correlated missingness (|r| > 0.3):")
-        for var1, var2, corr in sorted(high_corr_pairs, key=lambda x: abs(x[2]), reverse=True):
-            print(f"  {var1} <-> {var2}: {corr:.3f}")
-    else:
-        print("\nNo strong correlations found between missingness patterns")
-    
-    return missing_matrix, missing_corr
+    return missing_matrix, missing_corr, high_corr_pairs
 
 # ============================================
 # 2. TEST FOR MCAR (Little's MCAR Test Alternative)
@@ -70,12 +52,6 @@ def test_mcar_using_ttest(df, var_with_missing, numeric_vars):
     Test if missingness in a variable is related to values in other variables
     Uses t-tests to compare means of numeric variables between missing/not-missing groups
     """
-    print("\n" + "=" * 70)
-    print(f"TESTING MCAR FOR: {var_with_missing}")
-    print("=" * 70)
-    print("Comparing numeric variable means between missing vs non-missing groups")
-    print("-" * 70)
-    
     missing_indicator = df[var_with_missing].isnull()
     significant_diffs = []
     
@@ -91,31 +67,15 @@ def test_mcar_using_ttest(df, var_with_missing, numeric_vars):
             # Perform t-test
             t_stat, p_value = stats.ttest_ind(group_missing, group_present, equal_var=False)
             
-            # Calculate effect size (Cohen's d)
-            mean_diff = group_missing.mean() - group_present.mean()
-            pooled_std = np.sqrt((group_missing.std()**2 + group_present.std()**2) / 2)
-            cohens_d = mean_diff / pooled_std if pooled_std != 0 else 0
-            
             if p_value < 0.05:
                 significant_diffs.append({
                     'variable': num_var,
-                    'p_value': p_value,
-                    'cohens_d': cohens_d,
-                    'mean_missing': group_missing.mean(),
-                    'mean_present': group_present.mean()
+                    'p_value': p_value
                 })
     
     if significant_diffs:
-        print(f"\n  SIGNIFICANT DIFFERENCES FOUND (suggests NOT MCAR):")
-        for diff in sorted(significant_diffs, key=lambda x: x['p_value']):
-            print(f"\n  Variable: {diff['variable']}")
-            print(f"    p-value: {diff['p_value']:.6f}")
-            print(f"    Cohen's d: {diff['cohens_d']:.3f}")
-            print(f"    Mean when {var_with_missing} missing: {diff['mean_missing']:.2f}")
-            print(f"    Mean when {var_with_missing} present: {diff['mean_present']:.2f}")
         return "MAR or MNAR"
     else:
-        print(f"\n No significant differences found (consistent with MCAR)")
         return "MCAR"
 
 # ============================================
@@ -126,12 +86,6 @@ def test_mar_vs_mnar_categorical(df, var_with_missing, categorical_vars):
     """
     Test if missingness is related to categorical variables (MAR)
     """
-    print("\n" + "=" * 70)
-    print(f"TESTING MAR FOR: {var_with_missing}")
-    print("=" * 70)
-    print("Chi-square tests for association with categorical variables")
-    print("-" * 70)
-    
     missing_indicator = df[var_with_missing].isnull()
     significant_assoc = []
     
@@ -153,20 +107,12 @@ def test_mar_vs_mnar_categorical(df, var_with_missing, categorical_vars):
                 significant_assoc.append({
                     'variable': cat_var,
                     'p_value': p_value,
-                    'cramers_v': cramers_v,
-                    'chi2': chi2
+                    'cramers_v': cramers_v
                 })
     
     if significant_assoc:
-        print(f"\n  SIGNIFICANT ASSOCIATIONS FOUND (suggests MAR):")
-        for assoc in sorted(significant_assoc, key=lambda x: x['p_value']):
-            print(f"\n  Variable: {assoc['variable']}")
-            print(f"    p-value: {assoc['p_value']:.6f}")
-            print(f"    Cramers V: {assoc['cramers_v']:.3f}")
-            print(f"    Chi-Square: {assoc['chi2']:.2f}")
         return "MAR"
     else:
-        print(f"\n No significant associations found")
         return "Inconclusive"
 
 # ============================================
@@ -179,12 +125,13 @@ def visualize_missingness(df, variables):
     """
     missing_matrix = df[variables].isnull().astype(int)
     
-    plt.figure(figsize=(8,6))
+    plt.figure(figsize=(10, 8))
     
     # Correlation heatmap of missingness
     missing_corr = missing_matrix.corr()
-    sns.heatmap(missing_corr, annot=True, cmap='coolwarm', center=0)
-    plt.title("Correlation of Missingness Indicators")
+    sns.heatmap(missing_corr, annot=True, fmt='.2f', cmap='coolwarm', center=0,
+                square=True, linewidths=0.5)
+    plt.title('Correlation Between Missingness Indicators', fontsize=14, weight='bold')
     plt.tight_layout()
     plt.show()
 
@@ -196,10 +143,7 @@ def comprehensive_missingness_analysis(df, variables_to_impute):
     """
     Run complete missingness analysis and provide recommendations
     """
-    print("\n")
-    print("*" * 70)
-    print("COMPREHENSIVE MISSINGNESS ANALYSIS")
-    print("*" * 70)
+    print("\nRunning missingness analysis...\n")
     
     # Identify numeric and categorical variables
     numeric_vars = df.select_dtypes(include=[np.number]).columns.tolist()
@@ -209,7 +153,7 @@ def comprehensive_missingness_analysis(df, variables_to_impute):
     variables_present = [v for v in variables_to_impute if v in df.columns]
     
     # 1. Pattern analysis
-    missing_matrix, missing_corr = analyze_missingness_patterns(df, variables_present)
+    missing_matrix, missing_corr, high_corr_pairs = analyze_missingness_patterns(df, variables_present)
     
     # 2. Test each variable for MCAR
     results = {}
@@ -219,44 +163,101 @@ def comprehensive_missingness_analysis(df, variables_to_impute):
             mar_result = test_mar_vs_mnar_categorical(df, var, categorical_vars)
             results[var] = {'MCAR_test': mcar_result, 'MAR_test': mar_result}
     
-    # 3. Visualizations
+    # 3. Display correlation matrix
+    print("=" * 80)
+    print("CORRELATION BETWEEN MISSINGNESS INDICATORS")
+    print("=" * 80)
+    
+    if high_corr_pairs:
+        print("\nVariables with correlated missingness (|r| > 0.3):")
+        for var1, var2, corr in sorted(high_corr_pairs, key=lambda x: abs(x[2]), reverse=True):
+            print(f"  {var1} <-> {var2}: {corr:.3f}")
+    else:
+        print("\nNo strong correlations found between missingness patterns")
+    
+    # 4. Visualizations
+    print("\n" + "=" * 80)
+    print("GENERATING CORRELATION HEATMAP...")
+    print("=" * 80 + "\n")
     visualize_missingness(df, variables_present)
     
-    # 4. Summary and recommendations
-    print("\n" + "=" * 70)
+    # 5. Summary and recommendations
+    print("\n" + "=" * 80)
     print("SUMMARY AND RECOMMENDATIONS")
-    print("=" * 70)
+    print("=" * 80)
     
+    # Create PrettyTable
+    table = PrettyTable()
+    table.field_names = ["Variable", "Missing %", "Type", "Recommended Method"]
+    table.align["Variable"] = "l"
+    table.align["Missing %"] = "r"
+    table.align["Type"] = "c"
+    table.align["Recommended Method"] = "l"
+    table.max_width["Recommended Method"] = 45
+    
+    # Collect data for sorting
+    table_data = []
     for var, result in results.items():
-        print(f"\n{var}:")
-        print(f"  Missingness type: {result['MCAR_test']} / {result['MAR_test']}")
-        
-        # Recommend imputation method on Pretty Table
+        # Determine missingness type
         if result['MCAR_test'] == 'MCAR':
-            print(f"   Recommendation: Simple imputation (mean/median/mode) or deletion acceptable")
+            missingness_type = 'MCAR'
+            recommendation = 'Simple imputation (mean/median/mode)'
         elif result['MAR_test'] == 'MAR':
-            print(f"   Recommendation: Multiple Imputation (MICE) or KNN Imputation")
+            missingness_type = 'MAR'
+            recommendation = 'MICE or KNN Imputation'
+        elif result['MCAR_test'] == 'MAR or MNAR' and result['MAR_test'] == 'MAR':
+            missingness_type = 'MAR'
+            recommendation = 'MICE or KNN Imputation'
+        elif result['MCAR_test'] == 'MAR or MNAR':
+            missingness_type = 'MNAR'
+            recommendation = 'Random Forest or Deep Learning'
         else:
-            print(f"    Recommendation: Advanced methods (Random Forest, Deep Learning) or domain knowledge")
+            missingness_type = 'Inconclusive'
+            recommendation = 'KNN as default'
+        
+        # Calculate missing percentage
+        missing_pct = df[var].isnull().mean() * 100
+        
+        table_data.append({
+            'var': var,
+            'pct': missing_pct,
+            'type': missingness_type,
+            'rec': recommendation
+        })
     
-    print("\n" + "=" * 70)
-    print("GENERAL RECOMMENDATIONS:")
-    print("=" * 70)
+    # Sort by missing percentage (highest to lowest)
+    table_data.sort(key=lambda x: x['pct'], reverse=True)
+    
+    # Add rows to table
+    for row in table_data:
+        table.add_row([
+            row['var'],
+            f"{row['pct']:.2f}%",
+            row['type'],
+            row['rec']
+        ])
+    
+    print("\n")
+    print(table)
+    
+    print("\n" + "=" * 80)
+    print("GENERAL RECOMMENDATIONS")
+    print("=" * 80)
     print("""
-    1. MCAR (Missing Completely At Random):
-       - Simple imputation: mean, median, mode
-       - Listwise deletion (if small proportion)
-       
-    2. MAR (Missing At Random):
-       - Multiple Imputation by Chained Equations (MICE)
-       - K-Nearest Neighbors (KNN) imputation
-       - Regression-based imputation
-       
-    3. MNAR (Missing Not At Random):
-       - Random Forest imputation
-       - Deep learning-based imputation
-       - Domain expert consultation
-       - Consider keeping missingness as a feature
+1. MCAR (Missing Completely At Random):
+   - Simple imputation: mean, median, mode
+   - Listwise deletion (if small proportion)
+   
+2. MAR (Missing At Random):
+   - Multiple Imputation by Chained Equations (MICE)
+   - K-Nearest Neighbors (KNN) imputation
+   - Regression-based imputation
+   
+3. MNAR (Missing Not At Random):
+   - Random Forest imputation
+   - Deep learning-based imputation
+   - Domain expert consultation
+   - Consider keeping missingness as a feature
     """)
     
     return results
